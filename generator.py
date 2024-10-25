@@ -2,6 +2,7 @@ import csv
 import datetime
 import random
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import astuple, dataclass
 from decimal import Decimal
 from pathlib import Path
@@ -15,7 +16,7 @@ from faker.providers import DynamicProvider
 OUTPUT_DIR = Path('output')
 CITES_QUANTITY = 100
 SHOWS_QUANTITY = 100
-TICKETS_QUANTITY = 1000
+TICKETS_QUANTITY = 1_000_000
 
 
 fake = Faker()
@@ -96,17 +97,36 @@ def generate_shows(quantity: int, output_file: Path, possible_choices: list[UUID
     return shows_ids
 
 
-def generate_tickets(quantity: int, output_file: Path, possible_choices: list[UUID]) -> None:
+def generate_ticket_batch(quantity: int, possible_choices: list[UUID]) -> list[Ticket]:
+    tickets = []
+    for _ in range(quantity):
+        ticket = Ticket(
+            id=uuid4(),
+            price=Decimal(random.randrange(100, 1000)) / 100,
+            payment_type=fake.payment_type(),
+            seat_number=fake.bothify(text='?-##', letters='ABCDEFG'),
+            show_id=random.choice(possible_choices)
+        )
+        tickets.append(ticket)
+    return tickets
+
+
+def generate_tickets(quantity: int, output_file: Path, possible_choices: list[UUID], num_threads: int = 4) -> None:
+    batch_size = quantity // num_threads
+    remainder = quantity % num_threads
+    tasks = [batch_size] * num_threads
+    for i in range(remainder):
+        tasks[i] += 1
+
+    all_tickets = []
+    with ThreadPoolExecutor(max_workers=num_threads) as executor:
+        futures = [executor.submit(generate_ticket_batch, task, possible_choices) for task in tasks]
+        for future in futures:
+            all_tickets.extend(future.result())
+
     with open(output_file, 'w', newline='') as file:
         writer = csv.writer(file)
-        for _ in range(quantity):
-            ticket = Ticket(
-                id=uuid4(),
-                price=Decimal(random.randrange(100, 1000))/100,
-                payment_type=fake.payment_type(),
-                seat_number=fake.bothify(text='?-##', letters='ABCDEFG'),
-                show_id=random.choice(possible_choices)
-            )
+        for ticket in all_tickets:
             writer.writerow(astuple(ticket))
 
 
