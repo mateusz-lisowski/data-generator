@@ -1,17 +1,21 @@
 import csv
-import random
 import datetime
+import random
+import time
+from dataclasses import astuple, dataclass
 from decimal import Decimal
-from uuid import UUID, uuid4
-from dataclasses import dataclass, astuple
-from typing import Literal
 from pathlib import Path
+from typing import Literal
+from uuid import UUID, uuid4
 
 from faker import Faker
 from faker.providers import DynamicProvider
 
 
 OUTPUT_DIR = Path('output')
+CITES_QUANTITY = 100
+SHOWS_QUANTITY = 100
+TICKETS_QUANTITY = 1000
 
 
 fake = Faker()
@@ -52,6 +56,15 @@ class Show:
     city_id: UUID
 
 
+@dataclass
+class Ticket:
+    id: UUID
+    price: Decimal
+    payment_type: PaymentType
+    seat_number: str
+    show_id: UUID
+
+
 def generate_cities(quantity: int, output_file: Path) -> list[UUID]:
     cites_ids: list[UUID] = []
     with open(output_file, 'w', newline='') as file:
@@ -83,14 +96,35 @@ def generate_shows(quantity: int, output_file: Path, possible_choices: list[UUID
     return shows_ids
 
 
-def main():
+def generate_tickets(quantity: int, output_file: Path, possible_choices: list[UUID]) -> None:
+    with open(output_file, 'w', newline='') as file:
+        writer = csv.writer(file)
+        for _ in range(quantity):
+            ticket = Ticket(
+                id=uuid4(),
+                price=Decimal(random.randrange(100, 1000))/100,
+                payment_type=fake.payment_type(),
+                seat_number=fake.bothify(text='?-##', letters='ABCDEFG'),
+                show_id=random.choice(possible_choices)
+            )
+            writer.writerow(astuple(ticket))
+
+
+def main() -> None:
+    start = time.perf_counter()
 
     OUTPUT_DIR.mkdir(exist_ok=True)
 
-    cites_ids = generate_cities(100, output_file= OUTPUT_DIR / 'cities.csv')
-    show_ids = generate_shows(100, possible_choices=cites_ids, output_file= OUTPUT_DIR / 'shows.csv')
-    print(cites_ids)
-    print(show_ids)
+    cites_ids = generate_cities(CITES_QUANTITY, output_file=OUTPUT_DIR / 'cities.csv')
+    show_ids = generate_shows(SHOWS_QUANTITY, possible_choices=cites_ids, output_file=OUTPUT_DIR / 'shows.csv')
+    generate_tickets(TICKETS_QUANTITY, possible_choices=show_ids, output_file=OUTPUT_DIR / 'tickets.csv')
+
+    end = time.perf_counter()
+    elapsed_time = end - start
+
+    print(f"Generated: {CITES_QUANTITY} cites, {SHOWS_QUANTITY} shows, {TICKETS_QUANTITY} tickets")
+    print(f"Execution time: {elapsed_time:.5f} seconds")
+
 
 if __name__ == '__main__':
     main()
