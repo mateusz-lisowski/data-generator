@@ -5,22 +5,26 @@ from decimal import Decimal
 from uuid import UUID, uuid4
 from dataclasses import dataclass, astuple
 from typing import Literal
+from pathlib import Path
 
 from faker import Faker
 from faker.providers import DynamicProvider
 
 
+OUTPUT_DIR = Path('output')
+
+
 fake = Faker()
 
 
-Payment = Literal['cash', 'card']
+PaymentType = Literal['cash', 'card']
 ShowType = Literal['Acrobatic Troupe', 'Fire Jugglers', 'Animal Acts',
                      'Clown Comedy', 'Knife Throwing', 'Magician Illusions']
 
 # Create custom faker providers
 payment_type_provider = DynamicProvider(
     provider_name='payment_type',
-    elements=list(Payment.__args__)
+    elements=list(PaymentType.__args__)
 )
 
 show_type_provider = DynamicProvider(
@@ -48,7 +52,7 @@ class Show:
     city_id: UUID
 
 
-def generate_cities(quantity: int, output_file: str) -> list[UUID]:
+def generate_cities(quantity: int, output_file: Path) -> list[UUID]:
     cites_ids: list[UUID] = []
     with open(output_file, 'w', newline='') as file:
         writer = csv.writer(file)
@@ -63,7 +67,7 @@ def generate_cities(quantity: int, output_file: str) -> list[UUID]:
     return cites_ids
 
 
-def generate_shows(quantity: int, output_file: str, possible_choices: list[UUID]) -> list[UUID]:
+def generate_shows(quantity: int, output_file: Path, possible_choices: list[UUID]) -> list[UUID]:
     shows_ids: list[UUID] = []
     with open(output_file, 'w', newline='') as file:
         writer = csv.writer(file)
@@ -80,8 +84,11 @@ def generate_shows(quantity: int, output_file: str, possible_choices: list[UUID]
 
 
 def main():
-    cites_ids = generate_cities(100, output_file='cities.csv')
-    show_ids = generate_shows(100, possible_choices=cites_ids, output_file='shows.csv')
+
+    OUTPUT_DIR.mkdir(exist_ok=True)
+
+    cites_ids = generate_cities(100, output_file= OUTPUT_DIR / 'cities.csv')
+    show_ids = generate_shows(100, possible_choices=cites_ids, output_file= OUTPUT_DIR / 'shows.csv')
     print(cites_ids)
     print(show_ids)
 
