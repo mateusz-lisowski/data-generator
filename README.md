@@ -32,4 +32,6 @@ It should output 3 files `cities.csv`, `shows.csv` and `tickets.csv` to `/output
 -d
 csv-mssql`
 
-After container creation you should be able to log in into your database with **SMSS**.
+After container creation you should be able to log in into your database with **SMSS**.  
+- login: `sa`
+- password: `yourStrong(!)Password`
