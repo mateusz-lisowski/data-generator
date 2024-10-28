@@ -1,3 +1,4 @@
+import argparse
 import csv
 import datetime
 import random
@@ -9,18 +10,26 @@ from pathlib import Path
 from typing import Literal
 from uuid import UUID, uuid4
 
+from dateutil import relativedelta
 from faker import Faker
 from faker.providers import DynamicProvider
 
+parser = argparse.ArgumentParser(description='Generate random Circus data.')
+
+parser.add_argument('-c', '--cities', type=int, default=100, help='Number of cities to generate.')
+parser.add_argument('-s', '--shows', type=int, default=100, help='Number of shows to generate.')
+parser.add_argument('-t', '--tickets', type=int, default=1000, help='Number of tickets to generate.')
+parser.add_argument('-v', '--viewers', type=int, default=100, help='Number of viewers to generate.')
+
+args = parser.parse_args()
 
 OUTPUT_DIR = Path('output')
-CITES_QUANTITY = 100
-SHOWS_QUANTITY = 100
-TICKETS_QUANTITY = 1_000_000
 
+CITES_QUANTITY = args.cities
+SHOWS_QUANTITY = args.shows
+TICKETS_QUANTITY = args.tickets
 
 fake = Faker()
-
 
 PaymentType = Literal['cash', 'card']
 ShowType = Literal['Acrobatic Troupe', 'Fire Jugglers', 'Animal Acts',
@@ -66,8 +75,9 @@ class Ticket:
     show_id: UUID
 
 
-def generate_cities(quantity: int, output_file: Path) -> list[UUID]:
+def generate_cities(quantity: int, output_file: Path) -> tuple[list[UUID], list[City]]:
     cites_ids: list[UUID] = []
+    cities: list[City] = []
     with open(output_file, 'w', newline='') as file:
         writer = csv.writer(file)
         for _ in range(quantity):
@@ -78,10 +88,29 @@ def generate_cities(quantity: int, output_file: Path) -> list[UUID]:
             )
             writer.writerow(astuple(city))
             cites_ids.append(city.id)
+            cities.append(city)
+    return cites_ids, cities
+
+
+def modify_cities(cities: list[City], output_file: Path, mode: str = 'a') -> list[UUID]:
+    cites_ids: list[UUID] = []
+    with open(output_file, mode, newline='') as file:
+        writer = csv.writer(file)
+        for city in cities:
+            city.id = uuid4()
+            city.population = random.randrange(100_000, 10_000_000)
+            cites_ids.append(city.id)
+            writer.writerow(astuple(city))
     return cites_ids
 
 
-def generate_shows(quantity: int, output_file: Path, possible_choices: list[UUID]) -> list[UUID]:
+def generate_shows(
+        quantity: int,
+        output_file: Path,
+        possible_choices: list[UUID],
+        start_date: datetime.datetime,
+        end_date: datetime.datetime
+) -> list[UUID]:
     shows_ids: list[UUID] = []
     with open(output_file, 'w', newline='') as file:
         writer = csv.writer(file)
@@ -89,7 +118,7 @@ def generate_shows(quantity: int, output_file: Path, possible_choices: list[UUID
             show = Show(
                 id=uuid4(),
                 show_type=fake.show_type(),
-                date=fake.date_time(),
+                date=fake.date_time_between(start_date=start_date, end_date=end_date),
                 city_id=random.choice(possible_choices)
             )
             writer.writerow(astuple(show))
@@ -104,7 +133,7 @@ def generate_ticket_batch(quantity: int, possible_choices: list[UUID]) -> list[T
             id=uuid4(),
             price=Decimal(random.randrange(100, 1000)) / 100,
             payment_type=fake.payment_type(),
-            seat_number=fake.bothify(text='?-##', letters='ABCDEFG'),
+            seat_number=fake.bothify(text='??-###', letters='ABCDEFG'),
             show_id=random.choice(possible_choices)
         )
         tickets.append(ticket)
@@ -135,9 +164,27 @@ def main() -> None:
 
     OUTPUT_DIR.mkdir(exist_ok=True)
 
-    cites_ids = generate_cities(CITES_QUANTITY, output_file=OUTPUT_DIR / 'cities.csv')
-    show_ids = generate_shows(SHOWS_QUANTITY, possible_choices=cites_ids, output_file=OUTPUT_DIR / 'shows.csv')
-    generate_tickets(TICKETS_QUANTITY, possible_choices=show_ids, output_file=OUTPUT_DIR / 'tickets.csv')
+    cites_ids_t1, cites_t1 = generate_cities(CITES_QUANTITY, output_file=OUTPUT_DIR / 'cities_t1.csv')
+    show_ids_t1 = generate_shows(
+        SHOWS_QUANTITY,
+        possible_choices=cites_ids_t1,
+        output_file=OUTPUT_DIR / 'shows_t1.csv',
+        start_date=datetime.datetime.now() - relativedelta.relativedelta(years=10),
+        end_date=datetime.datetime.now() - relativedelta.relativedelta(years=1)
+    )
+    generate_tickets(TICKETS_QUANTITY, possible_choices=show_ids_t1, output_file=OUTPUT_DIR / 'tickets_t1.csv')
+
+    cites_ids_t2, cites_t2 = generate_cities(CITES_QUANTITY // 10, output_file=OUTPUT_DIR / 'cities_t2.csv')
+    modify_cities(cites_t1[:CITES_QUANTITY // 10], output_file=OUTPUT_DIR / 'cities_t2.csv')
+    show_ids_t2 = generate_shows(
+        SHOWS_QUANTITY // 10,
+        possible_choices=cites_ids_t2,
+        output_file=OUTPUT_DIR / 'shows_t2.csv',
+        start_date=datetime.datetime.now() - relativedelta.relativedelta(years=1),
+        end_date=datetime.datetime.now()
+    )
+    generate_tickets(TICKETS_QUANTITY // 10, possible_choices=show_ids_t2, output_file=OUTPUT_DIR / 'tickets_t2.csv')
+
 
     end = time.perf_counter()
     elapsed_time = end - start
