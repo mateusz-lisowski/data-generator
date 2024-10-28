@@ -185,7 +185,8 @@ def main() -> None:
 
     OUTPUT_DIR.mkdir(exist_ok=True)
 
-    viewers_ids_t1 = generate_viewers(args.viewers, output_file=OUTPUT_DIR / 'viewers_t1.csv')
+    viewers_ids = generate_viewers(args.viewers, output_file=OUTPUT_DIR / 'viewers.csv')
+
     cites_ids_t1, cites_t1 = generate_cities(args.cities, output_file=OUTPUT_DIR / 'cities_t1.csv')
     show_ids_t1 = generate_shows(
         args.shows,
@@ -197,11 +198,10 @@ def main() -> None:
     generate_tickets(
         args.tickets,
         shows=show_ids_t1,
-        viewers=viewers_ids_t1,
+        viewers=viewers_ids,
         output_file=OUTPUT_DIR / 'tickets_t1.csv'
     )
 
-    viewers_ids_t2 = generate_viewers(args.viewers // 10, output_file=OUTPUT_DIR / 'viewers_t2.csv')
     cites_ids_t2, cites_t2 = generate_cities(args.cities // 10, output_file=OUTPUT_DIR / 'cities_t2.csv')
     modify_cities(cites_t1[:args.cities // 10], output_file=OUTPUT_DIR / 'cities_t2.csv')
     show_ids_t2 = generate_shows(
@@ -214,7 +214,7 @@ def main() -> None:
     generate_tickets(
         args.tickets // 10,
         shows=show_ids_t2,
-        viewers=viewers_ids_t2,
+        viewers=viewers_ids,
         output_file=OUTPUT_DIR / 'tickets_t2.csv'
     )
 
