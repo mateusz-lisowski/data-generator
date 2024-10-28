@@ -29,6 +29,7 @@ CREATE TABLE tickets (
     payment_type VARCHAR(32) NOT NULL,
     seat_number VARCHAR(16),
     show_id UNIQUEIDENTIFIER,
+    viewer_id UNIQUEIDENTIFIER,
     CONSTRAINT FK_tickets_show FOREIGN KEY (show_id) REFERENCES shows(id),
     CONSTRAINT CHK_payment_type CHECK (payment_type IN ('cash', 'card'))
 );
