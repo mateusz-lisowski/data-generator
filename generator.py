@@ -14,6 +14,7 @@ from dateutil import relativedelta
 from faker import Faker
 from faker.providers import DynamicProvider
 
+
 parser = argparse.ArgumentParser(description='Generate random Circus data.')
 
 parser.add_argument('-c', '--cities', type=int, default=100, help='Number of cities to generate.')
@@ -24,10 +25,6 @@ parser.add_argument('-v', '--viewers', type=int, default=100, help='Number of vi
 args = parser.parse_args()
 
 OUTPUT_DIR = Path('output')
-
-CITES_QUANTITY = args.cities
-SHOWS_QUANTITY = args.shows
-TICKETS_QUANTITY = args.tickets
 
 fake = Faker()
 
@@ -52,6 +49,13 @@ fake.add_provider(payment_type_provider)
 
 
 @dataclass
+class Viewer:
+    id: UUID
+    name: str
+    age: int
+
+
+@dataclass
 class City:
     id: UUID
     name: str
@@ -73,6 +77,22 @@ class Ticket:
     payment_type: PaymentType
     seat_number: str
     show_id: UUID
+    viewer_id: UUID
+
+
+def generate_viewers(quantity: int, output_file: Path) -> list[UUID]:
+    viewers_ids: list[UUID] = []
+    with open(output_file, 'w', newline='') as file:
+        writer = csv.writer(file)
+        for _ in range(quantity):
+            viewer = Viewer(
+                id=uuid4(),
+                name=fake.name(),
+                age=random.randint(1, 100)
+            )
+            writer.writerow(astuple(viewer))
+            viewers_ids.append(viewer.id)
+    return viewers_ids
 
 
 def generate_cities(quantity: int, output_file: Path) -> tuple[list[UUID], list[City]]:
@@ -126,7 +146,7 @@ def generate_shows(
     return shows_ids
 
 
-def generate_ticket_batch(quantity: int, possible_choices: list[UUID]) -> list[Ticket]:
+def generate_ticket_batch(quantity: int, shows: list[UUID], viewers: list[UUID]) -> list[Ticket]:
     tickets = []
     for _ in range(quantity):
         ticket = Ticket(
@@ -134,13 +154,14 @@ def generate_ticket_batch(quantity: int, possible_choices: list[UUID]) -> list[T
             price=Decimal(random.randrange(100, 1000)) / 100,
             payment_type=fake.payment_type(),
             seat_number=fake.bothify(text='??-###', letters='ABCDEFG'),
-            show_id=random.choice(possible_choices)
+            show_id=random.choice(shows),
+            viewer_id=random.choice(viewers)
         )
         tickets.append(ticket)
     return tickets
 
 
-def generate_tickets(quantity: int, output_file: Path, possible_choices: list[UUID], num_threads: int = 4) -> None:
+def generate_tickets(quantity: int, output_file: Path, shows: list[UUID], viewers: list[UUID], num_threads: int = 4) -> None:
     batch_size = quantity // num_threads
     remainder = quantity % num_threads
     tasks = [batch_size] * num_threads
@@ -149,7 +170,7 @@ def generate_tickets(quantity: int, output_file: Path, possible_choices: list[UU
 
     all_tickets = []
     with ThreadPoolExecutor(max_workers=num_threads) as executor:
-        futures = [executor.submit(generate_ticket_batch, task, possible_choices) for task in tasks]
+        futures = [executor.submit(generate_ticket_batch, task, shows, viewers) for task in tasks]
         for future in futures:
             all_tickets.extend(future.result())
 
@@ -164,32 +185,43 @@ def main() -> None:
 
     OUTPUT_DIR.mkdir(exist_ok=True)
 
-    cites_ids_t1, cites_t1 = generate_cities(CITES_QUANTITY, output_file=OUTPUT_DIR / 'cities_t1.csv')
+    viewers_ids_t1 = generate_viewers(args.viewers, output_file=OUTPUT_DIR / 'viewers_t1.csv')
+    cites_ids_t1, cites_t1 = generate_cities(args.cities, output_file=OUTPUT_DIR / 'cities_t1.csv')
     show_ids_t1 = generate_shows(
-        SHOWS_QUANTITY,
+        args.shows,
         possible_choices=cites_ids_t1,
         output_file=OUTPUT_DIR / 'shows_t1.csv',
         start_date=datetime.datetime.now() - relativedelta.relativedelta(years=10),
         end_date=datetime.datetime.now() - relativedelta.relativedelta(years=1)
     )
-    generate_tickets(TICKETS_QUANTITY, possible_choices=show_ids_t1, output_file=OUTPUT_DIR / 'tickets_t1.csv')
+    generate_tickets(
+        args.tickets,
+        shows=show_ids_t1,
+        viewers=viewers_ids_t1,
+        output_file=OUTPUT_DIR / 'tickets_t1.csv'
+    )
 
-    cites_ids_t2, cites_t2 = generate_cities(CITES_QUANTITY // 10, output_file=OUTPUT_DIR / 'cities_t2.csv')
-    modify_cities(cites_t1[:CITES_QUANTITY // 10], output_file=OUTPUT_DIR / 'cities_t2.csv')
+    viewers_ids_t2 = generate_viewers(args.viewers // 10, output_file=OUTPUT_DIR / 'viewers_t2.csv')
+    cites_ids_t2, cites_t2 = generate_cities(args.cities // 10, output_file=OUTPUT_DIR / 'cities_t2.csv')
+    modify_cities(cites_t1[:args.cities // 10], output_file=OUTPUT_DIR / 'cities_t2.csv')
     show_ids_t2 = generate_shows(
-        SHOWS_QUANTITY // 10,
+        args.shows // 10,
         possible_choices=cites_ids_t2,
         output_file=OUTPUT_DIR / 'shows_t2.csv',
         start_date=datetime.datetime.now() - relativedelta.relativedelta(years=1),
         end_date=datetime.datetime.now()
     )
-    generate_tickets(TICKETS_QUANTITY // 10, possible_choices=show_ids_t2, output_file=OUTPUT_DIR / 'tickets_t2.csv')
-
+    generate_tickets(
+        args.tickets // 10,
+        shows=show_ids_t2,
+        viewers=viewers_ids_t2,
+        output_file=OUTPUT_DIR / 'tickets_t2.csv'
+    )
 
     end = time.perf_counter()
     elapsed_time = end - start
 
-    print(f"Generated: {CITES_QUANTITY} cites, {SHOWS_QUANTITY} shows, {TICKETS_QUANTITY} tickets")
+    print(f"Generated: {args.cities} cites, {args.shows} shows, {args.tickets} tickets, {args.viewers} viewers")
     print(f"Execution time: {elapsed_time:.5f} seconds")
 
 
