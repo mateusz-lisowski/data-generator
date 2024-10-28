@@ -15,7 +15,18 @@ This setup is valid only on Windows machines!
 `pip install -r requirements.txt`
 
 ### Run generator 
+
+#### Get help
+`python generator.py --help`
+
+#### Run with default values
 `python generator.py`  
+
+#### Short options run 
+`python generator.py -c 4 -s 2 -t 6 -v 9`
+
+#### Verbose options run
+`python generator.py --cities 4 --shows 2 --tickets 6 --viewers 9`
 
 It should output 3 files `cities.csv`, `shows.csv` and `tickets.csv` to `/output` directory.
 
