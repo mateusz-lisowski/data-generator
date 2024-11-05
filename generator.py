@@ -152,7 +152,6 @@ def generate_ticket_batch(quantity: int, shows: list[UUID], viewers: list[UUID])
             id=uuid4(),
             price=Decimal(random.randrange(100, 1000)) / 100,
             payment_type=fake.payment_type(),
-            seat_number=fake.bothify(text='??-###', letters='ABCDEFG'),
             show_id=random.choice(shows),
             viewer_id=random.choice(viewers)
         )
