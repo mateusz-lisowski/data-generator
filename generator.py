@@ -123,13 +123,7 @@ def modify_cities(cities: list[City], output_file: Path, mode: str = 'a') -> lis
     return cites_ids
 
 
-def generate_shows(
-        quantity: int,
-        output_file: Path,
-        possible_choices: list[UUID],
-        start_date: datetime.datetime,
-        end_date: datetime.datetime
-) -> list[UUID]:
+def generate_shows(quantity: int, output_file: Path, possible_choices: list[UUID]) -> list[UUID]:
     shows_ids: list[UUID] = []
     with open(output_file, 'w', newline='') as file:
         writer = csv.writer(file)
@@ -137,7 +131,6 @@ def generate_shows(
             show = Show(
                 id=uuid4(),
                 show_type=fake.show_type(),
-                date=fake.date_time_between(start_date=start_date, end_date=end_date),
                 city_id=random.choice(possible_choices)
             )
             writer.writerow(astuple(show))
@@ -145,7 +138,8 @@ def generate_shows(
     return shows_ids
 
 
-def generate_ticket_batch(quantity: int, shows: list[UUID], viewers: list[UUID]) -> list[Ticket]:
+def generate_ticket_batch(quantity: int, shows: list[UUID], viewers: list[UUID],
+                          start_date: datetime.datetime, end_date: datetime.datetime) -> list[Ticket]:
     tickets = []
     for _ in range(quantity):
         ticket = Ticket(
@@ -153,13 +147,15 @@ def generate_ticket_batch(quantity: int, shows: list[UUID], viewers: list[UUID])
             price=Decimal(random.randrange(100, 1000)) / 100,
             payment_type=fake.payment_type(),
             show_id=random.choice(shows),
-            viewer_id=random.choice(viewers)
+            viewer_id=random.choice(viewers),
+            date=fake.date_time_between(start_date=start_date, end_date=end_date),
         )
         tickets.append(ticket)
     return tickets
 
 
-def generate_tickets(quantity: int, output_file: Path, shows: list[UUID], viewers: list[UUID], num_threads: int = 4) -> None:
+def generate_tickets(quantity: int, output_file: Path, shows: list[UUID], start_date: datetime.datetime,
+                     end_date: datetime.datetime, viewers: list[UUID], num_threads: int = 4, ) -> None:
     batch_size = quantity // num_threads
     remainder = quantity % num_threads
     tasks = [batch_size] * num_threads
@@ -168,7 +164,8 @@ def generate_tickets(quantity: int, output_file: Path, shows: list[UUID], viewer
 
     all_tickets = []
     with ThreadPoolExecutor(max_workers=num_threads) as executor:
-        futures = [executor.submit(generate_ticket_batch, task, shows, viewers) for task in tasks]
+        futures = [executor.submit(generate_ticket_batch, task, shows, viewers, start_date, end_date)
+                   for task in tasks]
         for future in futures:
             all_tickets.extend(future.result())
 
@@ -190,14 +187,15 @@ def main() -> None:
         args.shows,
         possible_choices=cites_ids_t1,
         output_file=OUTPUT_DIR / 'shows_t1.csv',
-        start_date=datetime.datetime.now() - relativedelta.relativedelta(years=10),
-        end_date=datetime.datetime.now() - relativedelta.relativedelta(years=1)
+
     )
     generate_tickets(
         args.tickets,
         shows=show_ids_t1,
         viewers=viewers_ids,
-        output_file=OUTPUT_DIR / 'tickets_t1.csv'
+        output_file=OUTPUT_DIR / 'tickets_t1.csv',
+        start_date=datetime.datetime.now() - relativedelta.relativedelta(years=10),
+        end_date=datetime.datetime.now() - relativedelta.relativedelta(years=1)
     )
 
     cites_ids_t2, cites_t2 = generate_cities(args.cities // 10, output_file=OUTPUT_DIR / 'cities_t2.csv')
@@ -206,14 +204,15 @@ def main() -> None:
         args.shows // 10,
         possible_choices=cites_ids_t2,
         output_file=OUTPUT_DIR / 'shows_t2.csv',
-        start_date=datetime.datetime.now() - relativedelta.relativedelta(years=1),
-        end_date=datetime.datetime.now()
+
     )
     generate_tickets(
         args.tickets // 10,
         shows=show_ids_t2,
         viewers=viewers_ids,
-        output_file=OUTPUT_DIR / 'tickets_t2.csv'
+        output_file=OUTPUT_DIR / 'tickets_t2.csv',
+        start_date=datetime.datetime.now() - relativedelta.relativedelta(years=1),
+        end_date=datetime.datetime.now()
     )
 
     end = time.perf_counter()
