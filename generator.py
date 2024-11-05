@@ -66,7 +66,6 @@ class City:
 class Show:
     id: UUID
     show_type: ShowType
-    date: datetime.datetime
     city_id: UUID
 
 
@@ -75,7 +74,7 @@ class Ticket:
     id: UUID
     price: Decimal
     payment_type: PaymentType
-    seat_number: str
+    date: datetime.datetime
     show_id: UUID
     viewer_id: UUID
 
