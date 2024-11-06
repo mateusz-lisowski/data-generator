@@ -66,7 +66,6 @@ class City:
 class Show:
     id: UUID
     show_type: ShowType
-    city_id: UUID
 
 
 @dataclass
@@ -77,6 +76,7 @@ class Ticket:
     date: datetime.datetime
     show_id: UUID
     viewer_id: UUID
+    city_id: UUID
 
 
 def generate_viewers(quantity: int, output_file: Path) -> list[UUID]:
