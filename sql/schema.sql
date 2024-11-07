@@ -9,9 +9,6 @@ CREATE TABLE cities (
 CREATE TABLE shows (
     id UNIQUEIDENTIFIER PRIMARY KEY,
     show_type VARCHAR(64) NOT NULL,
-    date DATETIME NOT NULL,
-    city_id UNIQUEIDENTIFIER,
-    CONSTRAINT FK_shows_city FOREIGN KEY (city_id) REFERENCES cities(id),
     CONSTRAINT CHK_show_type CHECK (show_type IN (
         'Acrobatic Troupe',
         'Fire Jugglers',
@@ -27,9 +24,11 @@ CREATE TABLE tickets (
     id UNIQUEIDENTIFIER PRIMARY KEY,
     price DECIMAL(10, 2) NOT NULL,
     payment_type VARCHAR(32) NOT NULL,
-    seat_number VARCHAR(16),
-    show_id UNIQUEIDENTIFIER,
+    date DATETIME NOT NULL,
     viewer_id UNIQUEIDENTIFIER,
+    city_id UNIQUEIDENTIFIER,
+    show_id UNIQUEIDENTIFIER,
+    CONSTRAINT FK_shows_city FOREIGN KEY (city_id) REFERENCES cities(id),
     CONSTRAINT FK_tickets_show FOREIGN KEY (show_id) REFERENCES shows(id),
     CONSTRAINT CHK_payment_type CHECK (payment_type IN ('cash', 'card'))
 );
